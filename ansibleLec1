@@ -1,0 +1,161 @@
+                                                                                                             Ansible lec 1
+
+Notes:
+For ansible use we atleast required two systems:
+System 1 (Ansible Controller)  - (Required) Install Ansible,python 
+Node1 - Required(python)
+Node2 -Required(python)
+** Playbook (What needs to be done)
+Inventory - Where needs to be done
+yaml (scripting language) -> will use this scripting language.
+
+
+Scripting language:
+Sherlock Holmes
+221B, Baker Street,
+London, UK
+-------------------------------------------------------------------XML-----------------------------------------------------------------------
+<name> Sherlock Holmes </name>
+<address>
+      <apt-no> 221B </apt-no>
+      <street> Baker Street </street>
+      <city> London </city>
+      <country> UK </country>
+</address>
+------------------------------------------------------------------JSON-------------------------------------------------------------------------
+key : value
+key = metadata
+value = data
+name - metadata
+sherlock holmes - data
+
+---------------------------SYNTAX--------------------------------------------
+name: Sherlock Holmes
+address: {[
+        apt-no: 221B,
+        street: Baker Street,
+        city: London,
+        country: UK
+        ]}
+      
+----------------------------------------------------------------YAML-------------------------------------------------------------------------------
+YAML is a fork of JSON (YAML is developed based on JSON Format)
+key: value
+YAML is case and space sensitive language.
+Docker kubernetes works on yaml.
+---------------------------SYNTAX------------------------------------------------
+name: Sherlock Holmes
+address:
+  apt-no: 221B,
+  street: Baker Street,
+    city: London,
+  country: UK
+// Indenting should be follow here      
+//yaml checking webite
+yamllint.com      
+
+------------------------------------------------------------ANSIBLE--------------------------------------------------------------------------------
+connect to the Instance
+Ansible Controller - 
+Ansible Node -
+----------- offical website--------
+
+ansible.com - Open source
+Paid - Ansible Tower (Maintainence)
+
+
+--------------Connect the machine----------------
+cd folder_name
+using ssh connect to machine
+ssh -i Key_file.pem user_name@public_id/DNS
+
+
+---------STEPS-Installing Ansible in Ubuntu-------------
+check the python-- In ubuntu python is preinstalled
+$ sudo apt update
+$ sudo apt install software-properties-common
+$ sudo add-apt-repository --yes --update ppa:ansible/ansible
+$ sudo apt install ansible
+
+
+-------------------------------------
+config file for ansible(how to behave) - /etc/ansible/ansible.cfg
+ansible.cgf hosts->inventory roles
+------------------------------------------------------------START ANSIBLE CREATING OWN DIRECTORY--------------------------------------------------------------
+mkdir ansible-demo
+cd ansible-demo/
+STEP 1:
+nano ansible.cfg ------(name should be same)
+[defaults]
+inventory = ./dev 
+--providing the path of the directory where am going to keep my inventory
+STEP 2:
+When ever we execute command it find ansible.cfg in the current directory and if not it looks for the default one which is kept in /etc/ansible/ansible.cfg
+Purpose of inventory to keep the connection informtion of all the nodes.
+nano dev
+Every new line in the inventory in the new node and connection information
+--START
+
+copy the ip ex - 52.91.40.169
+if we don't provide the username ansible will use the username in which instance you are. (Like if am working on ubuntu it will use ubuntu)
+//User name password authentication
+52.91.40.169 ansible_user=ubuntu ansible_password=test
+
+// SSH private key file (Key based authentication)
+52.91.40.169 ansible_user=ubuntu ansible_ssh_private_key_file=key.pem
+
+STEP 3:
+nano key.pem
+copy the pem file...
+
+STEP 4:
+chmod 400 key.pem
+Give the read only permission
+
+STEP 5:
+Connect to another node if using (windows or any other OS where python is not installed by default)
+Take an UPDATE
+
+STEP 6:
+Check if ansible is able to connect to all the nodes or not.
+-----COMMAND----
+ansible -m ping all
+
+------------------------------------------------------------THIRD METHOD TO CONNECT (Password less authentication) -----------------------------------------------
+ansible controller ------> ansible node
+
+Ansible controller
+Generate a key -- ssh-keygen
+copy the key (cd /home/ubuntu/.ssh/id_rsa.pub)go to the node 
+ls -a
+nano .ssh/authorized_keys
+--Paste the key here----
+
+----------------------------How to check it is connected or not-----------------------------------------
+Ansible controller
+ssh ubuntu@take_node_ip
+It is connected................
+
+
+NOTE * IF are using password less authentication to connect from Controller to Node..
+52.91.40.169
+//If we will remove user_name it work cos both machines are ubuntu....
+//Specify user_name if using different OS....
+
+
+
+
+
+-----------------------------------------------------------------------------------------------END----------------------------------------------------------------------------------------------
+                                                                                           ASSIGNMENT
+                                        (WHERE)                                   Default port of ssh is 22
+                                       Inventory                    Node(Ubuntu)
+                                          |                         |(Use password less authentication PL)
+ACTOR ----> YAML---->PLAYBOOK---->ANSIBLE CONTROLLER (UBUNTU*)--------
+           (WHAT)               Ansible has less support for window | (Use key based authentication KEY-BASED)
+                                                                    Amazon Linux
+                                                                    
+                                                                    
+ 3.86.249.205
+34.238.116.21 ansible_user=ec2-user ansible_ssh_private_key_file=key.pem
+sudo yum update -y

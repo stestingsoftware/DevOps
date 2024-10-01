@@ -1,0 +1,374 @@
+                                                                                                           Ansible Lec-3
+                                                                                                           
+Connect to instances:
+mkdir ansible-demo
+cd ansible-demo/
+nano ansible.cfg
+[defaults]
+inventory = ./dev
+nano dev
+web1 ansible_host:100.28.111.111
+//setting password less authentication
+ansible -m ping all
+---------------------------------------------------------Install and Start Apache-----------------------------------------------------
+mkdir playbooks
+nano playbooks/install-start-apache.yaml
+
+---
+- hosts: web1
+  tasks:
+  - name: Install Apache
+    apt: name=apache2 state=present
+
+  -name: Start Apache
+   service: name=apache2 state=started
+   
+---SAVE & DRY-RUN---- NOT ACTUALLY EXECUTING THE PLAYBOOKS JUST A DRY RUN append this switch (SWITCH = --check)
+ansible-playbooks playbooks/install-start-apache.yaml --check
+
+------------------------------------ START AT TASK SWITCH---------------------------------------------------------------------------
+Suppose we have 100 tasks
+Execute till 31 task
+We resolved the error
+Now how specify from where to start
+
+
+---
+- hosts: web1
+  tasks:
+  - name: Install Apache
+    apt: name=apache2 state=present
+
+  -name: Start Apache
+   service: name=apache2 state=started
+   
+
+ansible-playbooks playbooks/install-start-apache.yaml --start-at-task " Start Apache"
+
+------------------------------------- TAGS------------------------------------------------
+
+---
+- hosts: web1
+  tasks:
+  - name: Install Apache
+    apt: name=apache2 state=present
+    tags: install
+    
+  -name: Start Apache
+   service: name=apache2 state=started
+   tags: config
+   
+ansible-playbooks playbooks/install-start-apache.yaml --tags "install"
+
+> Only execute task which has tag install
+> We can reuse the tags
+
+---------------------------------PICK AND USE WHICH TASKS NOT BE EXECUTED-------------------
+ansible-playbooks playbooks/install-start-apache.yaml --skip-tags "install"
+
+> Skip the task we has tagged --skip-tags "install"
+
+
+------------------------------------------------------------------------------------------------IMPORTANT-------------------------------------------------------------------------------------
+How to make playbook configurable: VARIABLES
+ansible-playbooks playbooks/variable-demo.yaml
+---
+- hosts: web1
+  become: true
+  vars:
+    pkg_name: nano
+  tasks:
+  -name: Install {{ pkg_name }}
+   apt: name="{{ pkg_name }}" state=present
+
+ ----execute this----
+ TASK [Install nano] value of the variale.  
+ 
+ > Here we have defined our variable in playbook level it will be available throughout the playbook for all the task of the playbook.
+ > It is avaibale for all the nodes of the playbook......
+
+ 
+   ------------pkg_name = nano ----------
+   |                                    |
+   |                                    |
+ Web1                                  web2
+ 
+  > Play book level variable..
+ 
+ ---------------------------- ---
+- hosts: web1
+  become: true
+  vars:
+    pkg_name: nano
+  tasks:
+  -name: Install {{ pkg_name }}
+   apt: name="{{ pkg_name }}" state=presentWill it work here?----------------------------------
+ ---
+- hosts: web1
+  become: true
+  vars:
+    pkg_name: nano
+  tasks:
+  -name: Install {{ pkg_name }}
+   apt: name="{{ pkg_name }}" state=present
+   
+- hosts: web1
+  become: true
+  tasks:
+  -name: start {{ pkg_name }}
+   service: name="{{ pkg_name }}" state= started   
+   
+--- this means start of a new yaml file.   
+> It is not get executes beacuase its a complete different playbook  
+-------------------------------------------------------------------------How to define node and host specific variable----------------------------------------
+> Go to the inventory
+// This variable will be available only on this host
+web1 ansible_host=100.28.223.241 pkg_name1=apache2 (abc=abc)
+
+   ------------pkg_name1 = apache2 ******
+   |                                    |
+   |                                    |
+ Web1                                  web2 (amazon linux) pkg_name1= httpd
+> pkg_name1 is not available in web2
+> If here will use playbook level variable then in that case we have to define two variable our playbook will be heavy...
+ansible-playbooks playbooks/host-var-demo.yaml
+ ---
+- hosts: web1
+  become: true
+  tasks:
+  -name: start {{ pkg_name1 }}
+   service: name="{{ pkg_name1 }}" state= started   
+   
+   
+----------------------------------------------SUPPOSE WE HAVE 10 LINUX AND 10 AWS MACHINE (GROUP LEVEL VARIABLE)----------------------------------
+[Webserver]
+web1 ansible_host=100.28.223.241 pkg_name1=apache2 
+[Webserver:vars]
+pkg_name2=ntp
+
+//This pkg_name2 would be defined on all the machine which are part of webserver group
+ ---
+- hosts: web1
+  become: true
+  tasks:
+  -name: start {{ pkg_name2 }}
+   service: name="{{ pkg_name2 }}" state= started      
+ 
+ -------------------------Precedence----------
+ Group level-pkg_name
+ Node specific-pkg_name
+ Play level- pkg_name
+ [Webserver]
+web1 ansible_host=100.28.223.241 pkg_name=apache2 
+[Webserver:vars]
+pkg_name=ntp 
+
+---
+- hosts: web1
+  become: true
+  vars:
+    pkg_name: nano
+  tasks:
+  -name: Install {{ pkg_name }}
+   apt: name="{{ pkg_name }}" state=present
+ 
+ 
+ 
+------------------------------------------------------- 
+[Webserver]
+web1 ansible_host=100.28.223.241 pkg_name2=apache2 
+[Webserver:vars]
+pkg_name=ntp 
+
+---
+- hosts: web1
+  become: true
+  vars:
+    pkg_name1: nano
+  tasks:
+  -name: Install {{ pkg_name }}
+   apt: name="{{ pkg_name }}" state=present
+ 
+--PLAY LEVEL
+--NODE LEVEL
+--GROUP LEVEL 
+ 
+ 
+----------------------------------------------RUN TIME VARIABLE------------------------
+> GLOBAL VARIABLE
+ansible-playbook playbooks/host-var-demo.yaml --extra-vars pkg_name=test
+
+-----------------------------------------------------------------------------LOGIC QUESTION----------------------------------------  
+cat playbooks 
+ ---
+- hosts: web1
+  become: true
+  vars:
+    pkg_name: nano
+  tasks:
+  -name: Install {{ pkg_name }}
+   apt: name="{{ pkg_name }}" state=present
+   
+- hosts: web1
+  become: true
+  tasks:
+  -name: start {{ pkg_name }}
+   service: name="{{ pkg_name }}" state= started   
+   
+ cat dev
+  [Webserver]
+web1 ansible_host=100.28.223.241 pkg_name=apache2 
+[Webserver:vars]
+pkg_name=ntp 
+
+ansible-playbook playbooks/var-demo.yaml --extra-vars pkg_name=ntp  
+
+> Everything consider as an ntp
+> Irrespective of which playbook is getting executed
+
+-------------------------------------CAPTURE THE OUTPUT----------------------
+nano playbooks register-yaml.yaml
+ ---
+- hosts: web1
+  tasks:
+  -name: Create a dir
+  shell: mkdir test
+  register: result
+//Store output in result.....
+  - debug:
+      var: result
+      
+ ansible-playbook playbooks/ register-yaml.yaml
+ --IF WE DONT WANT TO PRINT EVERYTHING----
+        
+   ---
+- hosts: web1
+  tasks:
+  -name: Create a dir
+  shell: mkdir test
+  register: result
+//Store output in result.....
+  - debug:
+      var: result.changed
+      
+------NOW ONLY CHANGE WILL PRINT-------------
+
+----------------------------------------------------------------------------------MAGIC-VARIABLE-----------------------------------------------------------------------------------
+WEB1                     WEB2
+  |                       |
+  |                       |
+pkg_name = nano      pkg_name1 = httpd
+                     pkg_name = ntp
+
+Suppose we want to use pkg_name1 = httpd variable on web1.How is it possible? Cos pkg_name1 is only available in web2..
+
+Ansible create a array on run time keep the info( hostvars
+                                           web1 
+                                              pkg_name = nano                                            	      
+                                           web2
+                                              pkg_name = ntp
+                                              pkg_name1 = httpd
+                                              
+Ans -> We can directly accesss it and pass. This happens in memory
+ ---
+- hosts: web1
+  become: true
+  vars:
+    pkg_name: nano
+  tasks:
+  -name: Install {{ pkg_name }}
+   apt: name="{{ pkg_name }}" state=present
+   
+  -name: Using other host vars
+   apt: name="{{hostvars['web2'].pkg_name1}}" state= present
+    
+- hosts: web1
+  become: true
+  tasks:
+  -name: start {{ pkg_name }}
+   service: name="{{ pkg_name }}" state= started   
+                                              
+
+---------------------------------------------------------CONDITION------------------------------------------
+  //400 execution       
+---
+- hosts: web1
+  become: true
+     tasks:
+   -name: Install apache on ubuntu
+    apt: name= apache2 state = present
+    when: ansible_os_family == "Debian"
+    
+  - name: Start Apache on ubuntu  
+    service: name = apache2 state=started
+      when: ansible_os_family == "Debian"
+    
+   - name: Install httpd on AL
+    yum: name=httpd state=present 
+      when: ansible_os_family == "RedHat"
+    
+    -name:state httpd on AL
+    service: name=httpd state=started
+      when: ansible_os_family == "RedHat"
+      
+  //Gathering task= will help ansible to let know everything which family what belongs too. IT create an execution plan and check .. Store information in variable predefined variables
+  //First condition get evaluated and then module depending on the result of condition.
+  
+  ------------------------------------------------------------------------Block-demo---------------------------------
+   ---
+- hosts: web1
+  become: true
+     tasks:
+      -block
+   -name: Install apache on ubuntu
+    apt: name= apache2 state = present
+   
+  - name: Start Apache on ubuntu  
+    service: name = apache2 state=started
+      when: ansible_os_family == "Debian"
+      
+   -block  
+   - name: Install httpd on AL
+    yum: name=httpd state=present 
+    
+    -name:state httpd on AL
+    service: name=httpd state=started
+      when: ansible_os_family == "RedHat"
+      
+  //200 execution       
+      
+ ---------------------------------------------------------------------Block,rescue,always-----------------------------------------------------------
+Block also helps in error handling.
+JAVA    ANSIBLE
+try      block
+catch   rescue
+finally  always
+
+
+
+   ---
+- hosts: web1
+  become: true
+     tasks:
+      -block
+   -name: Install apache on ubuntu
+    apt: name= apache state = present
+   
+  - name: Start Apache on ubuntu  
+    service: name = apache2 state=started
+      when: ansible_os_family == "Debian"
+      
+      rescue:
+         -debug:
+          msg: "From rescue block"
+        always:
+        -debug:
+          msg: "From always block"
+   -block  
+   - name: Install httpd on AL
+    yum: name=httpd state=present 
+    
+    -name:state httpd on AL
+    service: name=httpd state=started
+      when: ansible_os_family == "RedHat"
+      

@@ -1,0 +1,408 @@
+                                                                                                            Ansible Lec2
+
+Connect to your instances:
+-----------------------------START-----------------------------------
+mkdir ansible-demo
+cd ansible-demo/
+mkdir playbooks
+nano playbooks/install-apache.yaml/yml (Anything would be ok yaml/yml)
+---
+- hosts: all
+  tasks:
+     - name: Install apache
+       apt: name=apache2 state=present
+-------------Execute a playbook command--------
+ansible-playbook playbooks/install-apache.yaml/yml 
+---Note--
+Flow-- Where this playbook going to be executed
+PLAY [all]---- It means all nodes.
+Ansible allow us to create groups in inventory
+[webserver]
+3.84.213.10
+1.1.1.1
+2.2.2
+3.3.3
+[db]
+4.4.4.4
+3.3.3
+
+//We can create as many group as we want.
+//Ansible provide us default group [all]
+--------------PLaybook------------------
+hosts: all // We want my playbook to execute in all...
+hosts: webserver //If i want my playbook to execute on particular webserver
+hosts: 4.4.4.4 // we can also provide the direct ip
+-----------------------------------When we want my playbook to execute on single machine----------------------------------------
+// web1 its an alias... 
+web1 ansible_host=3.84.213.10
+------Playbook--------
+---
+- hosts: web1,group_name,ip // anything we can provide
+  tasks:
+     - name: Install apache
+       apt: name=apache2 state=present
+       
+       
+------------------------------------------TASK [GATHERING FACTS]---------------------------
+Ansible creates a roadmap while the time of execution
+Gathering facts= ping all the nodes
+Whatever nodes are reachable, It collects the system Information of all the nodes.
+[System Informtion- arc,OS,OS version,which family]
+--------------------------------------------------------------------------------------INVENTORY---------------------------------
+[webserver]
+web1 ansible_host=3.84.213.10
+1.1.1.1
+2.2.2
+3.3.3
+[db]
+4.4.4.4
+3.3.3
+
+--------------------PLAYBOOK----------------------
+---
+- hosts: web1
+  tasks:
+     - name: Install apache
+       apt: name=apache2 state=present
+-----------ERROR----------------------
+Ansible could not install the apache
+//Which user is doing this execution-ubuntu //by default if we don't specify any user.
+//Ubuntu user doesn't have permission
+// Three ways: Either we give root/required permission to allowed that user to install something (we can add ubuntu user to sudoers file)
+2:We can any other user which has required permision
+3: use root user
+---------------------------------------------If we want playbook to use root user (Play level)---------------------------------------
+---
+- hosts: web1
+  become: true
+  tasks:
+     - name: Install apache
+       apt: name=apache2 state=present
+---------------------------------------------Task level--------------------------------------------
+---
+- hosts: web1
+  tasks:
+     - name: Install apache
+       apt: name=apache2 state=present
+       become: true
+ //This only task will be executed as root and other task will be executed as ubuntu user
+ //check in another node which apache2 
+ //If we again execute the command ansible will first check.(Present or Not) // If present it will not do anything. (This nature we called id impotent)
+ 
+ 
+ -------------------------------------------------------------------------ANSIBLE MODULE----------------------------------------------------------------------------------------
+ //apt is the package manager for ubuntu
+ //for any command there is a module available.
+ 
+  -------MANUAL STEPS-------
+ sudo apt install apache2
+ sudo service apache2 start      
+ --------------------------------------------------------
+ ---
+- hosts: web1
+  become: true
+  tasks:
+     - name: Install apache
+       apt: name=apache2 state=present
+ 
+ 
+ -----STEPS OF INSTALLATION---
+check if apache is installed else apt install apache2....
+Ansible is converting that PLAYBOOK in python executable format....
+It will just connect to that particular machine and it will just pass on that python executable instrution to the interpreter which is install in nodes.And submit back the result.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//service module in ansible
+//apt module in ansible
+ ---
+- hosts: web1
+  become: true
+  tasks:
+     - name: Install apache
+       apt: name=apache2 state=present
+      
+     -name: Start Apache
+      service: name=apache2 state=started
+
+-----------SHELL COMMAND---------------
+shell-demo.yaml
+---
+- hosts: web1
+  become: true //we dont need to use become for this
+  tasks:
+     - name: create a dir
+       shell: mkdir test
+ ----shell command doesn't follow id impontancy (executes by kernel)-----
+ 
+ 
+-------------COMMAND MODULE------------------ (NO id impontancy)-------
+command-demo.yaml
+//It only allows us to execute one liner command (It doesn't allow to execute multiple command at the same time)
+ ---
+- hosts: web1
+  tasks:
+     - command: mkdir abc
+--------------------------------------------------------------------------------DEPLOY-----------------------------------------------------------------------     
+nano playbook/index.html
+<html>
+<head>
+<body>
+  <h1>Welcome to ansible</h1>
+</body>
+</head>
+</html>      
+-----------------DEPLOY this app on node-------------------
+----VERTICALLY PARAMETER-------
+nano playbook/copy-demo.yaml
+//apt module in ansible
+ ---
+- hosts: web1
+  become: true
+  tasks:
+     - name: DEPLOY Application
+       copy: src=index.html dest=/var/www/html/
+       
+-----------PASSING HORIZONTALLY------------  
+---
+- hosts: web1
+  become: true
+  tasks:
+    -name: DEPLOY APPLICATION
+     copy:
+        src: index.html
+        dest: /var/www/html
+
+
+//apache is installed on cd /etc/apache2/
+//  cd ports.conf 
+  
+//How to do this using ansible
+nano playbook/lininfile-demo.yaml
+
+---
+- hosts: web1
+  become: true
+  tasks:
+    -name: Update apache port
+    lineinfile:
+       path: /etc/apache2/ports.conf
+       regexp: "^Listen 80"
+       line: "Listen 90"
+       
+  -name: Restart Aoache
+   service: name=apache2 state=restarted
+
+------------------------------------------------------LOGICAL DEPENDENCY----------------------------------------
+cat playbooks/handerlers-demo.yaml
+---
+- hosts: web1
+  become: true
+  tasks:
+    -name: Update apache port
+    lineinfile:
+       path: /etc/apache2/ports.conf
+       regexp: "^Listen 80"
+       line: "Listen 90"
+      notify: Restart Apache  
+ handlers:      
+  -name: Restart Apache
+   service: name=apache2 state=restarted
+
+//Handelers won't get executed untill and unless it gets executed by task section 
+//If the first task is get executed then(notify) only execute handler
+// Handler only execute once. once all task get executed handlers only executed once.
+//whenever change will made.. like change port 80 to 90...
+//Next time if the port will be same handlers will not call.    
+ 
+ 
+----------------------------------------------------------------------------------ASSIGNMENT----------------------------------------------------------------------------     
+
+1> Create indivisual playbooks for all the below module - 30 min
+-copy
+-lineinfile
+-command
+-shell
+-apt
+-services
+
+
+2. Create a playbook to install apache and deploy an html application from your public git repo. Restart the apache post sucessful deployment
+
+3. Add "welcome to server" line in systems welcome message NODE....
+
+
+--------------------------------------Answer key------------------------------------------
+cat apt-demo.yaml 
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Install Apache
+      apt:
+        name: apache2
+        state: present
+
+-----2------
+cat command-demo.yaml 
+---
+- hosts: all
+  tasks:
+    - name: Create directory abc
+      command: mkdir abc
+--------------3-------------------
+cat copy-demo.yaml 
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Copy File
+      copy:
+        src: index.html
+        dest: /var/www/html
+------------------4---------------------
+index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Web Page Design</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: #fff;
+            padding: 10px 0;
+            text-align: center;
+        }
+        nav {
+            display: flex;
+            justify-content: center;
+            background-color: #444;
+        }
+        nav a {
+            padding: 14px 20px;
+            display: block;
+            color: #fff;
+            text-decoration: none;
+        }
+        nav a:hover {
+            background-color: #555;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .main-content {
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        footer {
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            padding: 10px 0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Welcome to My Simple Web Page</h1>
+</header>
+
+<nav>
+    <a href="#home">Home</a>
+    <a href="#about">About</a>
+    <a href="#services">Services</a>
+    <a href="#contact">Contact</a>
+</nav>
+
+<div class="container">
+    <section class="main-content">
+        <h2>Main Content</h2>
+        <p>This is a simple HTML page designed with a header, navigation menu, content section, and footer.</p>
+        <p>You can easily customize this page by changing the colors, fonts, and content.</p>
+    </section>
+</div>
+
+<footer>
+    <p>&copy; 2024 My Simple Web Page. All Rights Reserved.</p>
+</footer>
+
+</body>
+</html>
+
+------------5-----------------
+cat lineinfile-demo.yaml 
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Update Apache port
+      lineinfile:
+        path: /etc/apache2/ports.conf
+        regexp: "^Listen 80"
+        line: "Listen 90"
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
+
+-----------------6-----------------------
+cat services-demo.yaml 
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Start Apache
+      service:
+        name: apache2
+        state: started
+---------------------------7----------------------
+cat shell-demo.yaml 
+---
+- hosts: all
+  tasks:
+    - name: Create a directory
+      shell: mkdir test
+
+
+
+
+------------------------------------------------------TASK-2----------------------------------------
+Create a playbook to install apache and deploy an html application from your public git repo. Restart the apache post sucessful deployment
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Start GIT checkout
+  ansible.builtin.git:
+    repo: 'https://github.com/stestingsoftware/testing.git'
+    dest:  /var/www/html
+
+---------------------------------------------------TASK-3------------------------------------
+Add "welcome to server" line in systems welcome message NODE....
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Add welcome message to user's .bashrc
+      ansible.builtin.lineinfile:
+        path: /home/ubuntu/.bashrc
+        line: 'echo "Welcome to Server"'
+        state: present
+
+
+

@@ -1,0 +1,257 @@
+                                                                                                               Ansible-Lec4
+Default behavior of Ansible is it will end the execution if any occur come.
+ 
+ 
+ 
+              Node-1         Node-2        NOde-3     Node4
+ task-1----------------------------------------------------
+ task-2-------------------------------------------------*
+ task-3--------------------------------------*
+ task-4-------------------------*
+ 
+//  #forks  =5 (Connect to 5 nodes at one time reachable) It execute nodes in batched manner.
+// It will initiate execute on all the 5 nodes.
+
+---
+- hosts: web1
+  become: true
+  any_errors_fatal: true  //execution must serializable.... If anisble is executing first task it will wait every node to complete it. Node1 Node2 Node3 Node4. Then executuion of next task. If error occur in Node2 in second task it will stop execution
+  tasks:
+    -name: Install apache
+     apt: name=apache2 state=present
+     
+     
+//May in some case am running my enviroment in behind an autoscalar or loadbalancer --(70% machine must be on the desired configuration)     
+---
+- hosts: web1
+  become: true
+  max_fail_percentage = 20
+      tasks:
+    -name: Install apache
+     apt: name=apache2 state=present
+ 
+// Some task are not Inportant 
+---
+- hosts: web1
+  become: true
+  max_fail_percentage = 20
+      tasks:
+    -name: Install apache
+     apt: name=apache2 state=present
+    
+    -name: print message
+    debug:
+       msg: "Playbook completed" 
+     ignore_errors:yes
+     
+   
+//In some scenrios ansible won't be able to maintain id impontency.. LIKE SHELL COMMANDS.
+ ---
+- hosts: web1
+  become: true
+  max_fail_percentage = 20
+      tasks:
+    -name: Install apache
+     apt: name=apache2 state=present
+    
+    -name: print message
+    debug:
+       msg: "Playbook completed" 
+     ignore_errors:yes
+       
+   - name: Shell Commands
+     shell: mkdir test
+     register: result
+     failed_when: 'ERROR' in result.stdout 
+//If there is an error failed this task.
+
+------------------------------------------------------------------------------------------LOOP----------------------------------------------------------------------------------------
+nano playbooks loops-playbook.yaml
+---
+- hosts: web1
+  become: true
+  tasks:
+    -name: Install packages
+      apt:
+       name: "{{ item }}"
+         state: present
+       loop:
+         -apache2
+         -nano  
+---------------------------------------------------------------------TEMPLATING----------------------------------------------------------------------------------------     
+Blueprint- which is allready defined
+
+DEAR <<employee>>
+Greeting !
+You are being sent a new task.
+
+Thanks,
+CTO
+
+no_of_connection == <<no>>
+default_ports = <<port>>
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+jinja template are for python hence we are using ansible and ansible use jinja in that case we use jinja...
+https://jinja.palletsprojects.com/en/3.1.x/
+
+------HOW TO USE JINJA----------
+String Filters- 
+
+The name is Bond.
+my_name: Bond
+The name is {{ my_name }} = The name is bond.
+The name is {{ my_name | upper }} = The name is BOND
+The name is {{ my_name | lower }} = The name is BOND
+The name is {{ my_name | title }} = The name is Bond
+The name is {{ my_name | Replace("Bond","James") | lower }} = The name is BOND
+
+------------------------------------------------------------------------------------------------
+Numeric Filter/Airthmetic Filter
+Numeric Filters (List and set)-
+{{ [1,2,3] | min }} = 1
+{{ [1,2,3] | max }} = 3
+{{ [1,2,3,4,3,2] | unique }} = 1,2,3,4
+{{ 100 | random }} = random_number from 0 to 100
+
+------LOOPS------------
+loops-
+
+{% for number in [0,1,2,3] %}
+        {{ number }}
+{% endfor %}
+-----------------------------------------------------
+condition
+
+{% for number in [0,1,2,3] %}
+  {% if number == 2 %}
+        {{ number }}
+     {% endif %} 
+{% endfor %}
+-------------------------------------
+File Filter
+
+{{ "/etc/ansible" | basename }} = ansible
+---------------------------------------------------
+nano playbooks/index.html
+
+<html>
+     <head>
+      
+     </head>
+     <body>
+     <h1> Welcome to my server - node_name </h1>
+     </body>
+</html>
+
+----To make jinja template-------
+
+nano playbooks/index.html.j2
+<html>
+     <head>
+      
+     </head>
+     <body>
+     <h1> Welcome to my server - {{ inventory_hostname }} </h1>
+     </body>
+</html>
+
+---playbook--
+nano playbooks/template-demo.yaml
+
+---
+- hosts: web1
+ become: true
+ tasks:
+   -name: Deploy custom template
+    template:
+      src: index.html.js
+      dest: /var/www/html/index.html
+      
+ -------- ansible-playbook playbooks/template-demo.yaml-------------
+ 
+-----------------------------------------------------------------------------------------ROLES--------------------------------------------------------------------------
+1> install apache  ---- KAPIL
+2> configure apache ---- MARY
+3> deploy apache -------- MANOJ
+
+> LATE PUSH
+> DUPLICACY
+> STANDARDIZATION 
+> REUSEABILITY NOT EASY
+
+// To tackle we use ansible roles...
+> ansible role is a predefined structure
+// My manual direct strutcure
+sudo apt install tree
+cd ansible-demo
+tree
+ansible.cfg
+-dev
+-playbooks
+   index.html.js
+   install-apache.yml
+
+ansible-galaxy init web
+-Role web was created sucessfully
+tree web
+//In playbook - what,where
+//In roles - what   
+
+-----------------------------------------
+cd web/
+nano tasks/install-apache.yaml
+-name: Install Apache
+ apt: name=apache2 state=present
+nano tasks/config-apache.yaml
+-name: Config apache
+  service: name= apache2 state= started
+nano tasks/deploy.yaml
+  -name: Deploy App
+  copy: src=index.html dest=/var/www/html/
+  notify: Restart Apache
+
+nano files/index.html
+<h1> Welcome to ansible roles </h1>
+nano handlers/main.yaml
+-name: Restart Apache
+ service: name=apache2 state=restarted
+ 
+ ----To make a connection-----
+cd ansible-demo/tasks/main.yaml 
+ - include_task:install-apache.yaml
+ - include_task:config-apache.yaml
+ - include_task:deploy-apache.yaml
+ 
+ 
+ --In roles we only specify what needs to be done.
+ cd ansible-demo 
+ role-demo.yaml
+ ---
+  -hosts: all
+   become: true
+   roles:
+     -web
+     -role2
+     -role2
+ 
+ --execute role-demo.yaml 
+ --------------------------------------
+ ansible.cfg dev role-demo web
+------------------------------------------------------------------
+https://galaxy.ansible.com/ui/standalone/roles/AlexCallejas/myapache/ 
+ansible-galaxy role install AlexCallejas.myapache  
+
+
+--------------------------------------------------------------------------------------SECURITY---------------------------------------------------------
+ansible-vault encrypt dev
+New vault password:
+---------------------------Now how ansible will read it--------------------
+ansible-playbook role-demo.yaml --ask-vault-pass
+---------------ANOTHER PROVIDING PASSWORD IN SOME FILE-------------
+ansible-playbook role-demo.yaml -vault-password-file abc.txt
+------------------------Decrypt---------------------------------
+ansible-vault decrypt dev
+
+---------------------------------------------------------------------------------------PROJECT---------------------------------
+COURSE-PROJECT
